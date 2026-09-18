@@ -1,0 +1,23 @@
+node_modules/
+.next/
+out/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Prisma local database files
+prisma/*.db
+prisma/*.db-journal
+
+# Debug and build output
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tsbuildinfo
+
+# Local editor and OS files
+.DS_Store
+*.swp

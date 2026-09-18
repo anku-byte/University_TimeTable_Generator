@@ -1,0 +1,143 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  VIEWER
+}
+
+enum RoomType {
+  LECTURE
+  LAB
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+enum TimetableStatus {
+  DRAFT
+  GENERATED
+  PUBLISHED
+  ARCHIVED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(VIEWER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Faculty {
+  id                 String           @id @default(cuid())
+  name               String
+  email              String           @unique
+  maxHoursPerDay     Int              @default(4)
+  availabilityMatrix Json             // Structure: { "MONDAY": [0,1,2,3,4,5], "TUESDAY": ... }
+  assignments        SectionSubject[]
+  timetableSlots     TimetableSlot[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+}
+
+model Room {
+  id             String          @id @default(cuid())
+  name           String          @unique // e.g., "Hall 101" or "Lab 3"
+  capacity       Int
+  roomType       RoomType        @default(LECTURE)
+  timetableSlots TimetableSlot[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model Subject {
+  id                   String           @id @default(cuid())
+  code                 String           @unique // e.g., "CS-301"
+  name                 String
+  credits              Int              @default(3)
+  requiredHoursPerWeek Int              @default(3)
+  preferredRoomType    RoomType         @default(LECTURE)
+  assignments          SectionSubject[]
+  timetableSlots       TimetableSlot[]
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+}
+
+model Section {
+  id             String           @id @default(cuid())
+  name           String           @unique // e.g., "CS-3A"
+  studentCount   Int
+  department     String           @default("Computer Science")
+  assignments    SectionSubject[]
+  timetableSlots TimetableSlot[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+// Curriculum binding: Section + Subject + Assigned Faculty
+model SectionSubject {
+  id                  String   @id @default(cuid())
+  sectionId           String
+  subjectId           String
+  facultyId           String
+  weeklyHoursRequired Int      @default(3)
+
+  section             Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  subject             Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  faculty             Faculty  @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+
+  @@unique([sectionId, subjectId])
+  @@index([facultyId])
+}
+
+model Timetable {
+  id           String          @id @default(cuid())
+  name         String
+  academicTerm String
+  status       TimetableStatus @default(DRAFT)
+  slots        TimetableSlot[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+model TimetableSlot {
+  id            String    @id @default(cuid())
+  timetableId   String
+  dayOfWeek     DayOfWeek
+  timeSlotIndex Int       // 0 to N-1
+  sectionId     String
+  subjectId     String
+  facultyId     String
+  roomId        String
+
+  timetable     Timetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
+  section       Section   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  subject       Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  faculty       Faculty   @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  room          Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  // Hard Constraint Unique Safeguards
+  @@unique([timetableId, dayOfWeek, timeSlotIndex, sectionId], name: "unique_section_slot")
+  @@unique([timetableId, dayOfWeek, timeSlotIndex, facultyId], name: "unique_faculty_slot")
+  @@unique([timetableId, dayOfWeek, timeSlotIndex, roomId], name: "unique_room_slot")
+
+  @@index([timetableId])
+  @@index([sectionId])
+  @@index([facultyId])
+  @@index([roomId])
+}
