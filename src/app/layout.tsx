@@ -1,9 +1,12 @@
 import './globals.css';
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'University Clash-Free Timetable Generator',
-  description: 'Automated Timetable Generator powered by CSP Backtracking Algorithm',
+  title: 'CampusGrid | Academic Timetable Management',
+  description: 'Generic institutional timetable management platform for higher education',
 };
 
 export default function RootLayout({
@@ -13,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="antialiased bg-slate-50 text-slate-900">{children}</body>
+      <body className={`${inter.className} antialiased bg-slate-50 text-slate-900`}>{children}</body>
     </html>
   );
 }

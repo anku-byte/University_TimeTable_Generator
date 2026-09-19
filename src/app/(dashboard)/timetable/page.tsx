@@ -42,7 +42,6 @@ export default function TimetablePage() {
       if (roomData.success) setRooms(roomData.data);
 
       if (ttData.success && ttData.data.length > 0) {
-        // Hydrate slots from most recent timetable
         const latestTt = ttData.data[0];
         const hydratedSlots: TimetableSlotData[] = latestTt.slots.map((s: any) => ({
           id: s.id,
@@ -61,7 +60,6 @@ export default function TimetablePage() {
         }));
         setSlots(hydratedSlots);
       } else {
-        // Initial fallback synthetic slots for demo view if generator hasn't run yet
         const defaultSlots: TimetableSlotData[] = [
           {
             id: 'demo-1',
@@ -122,7 +120,6 @@ export default function TimetablePage() {
     );
   };
 
-  // Prepare Grid export data map
   const activeEntityName =
     filterType === 'section'
       ? sections.find((s) => s.id === selectedEntityId)?.name || 'Section'
@@ -146,20 +143,20 @@ export default function TimetablePage() {
   return (
     <div className="space-y-6">
       {/* Title & Action Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-            <CalendarDays className="w-6 h-6 text-indigo-600" /> Interactive Timetable Grid
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <CalendarDays className="w-5 h-5 text-blue-900" /> Timetable Grid
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Weekly schedule view. Drag and drop slots to make manual adjustments.
+          <p className="text-xs text-slate-500 mt-0.5">
+            Interactive schedule viewer with section, faculty, and room perspectives.
           </p>
         </div>
 
         <div className="flex items-center space-x-3">
           <button
             onClick={loadData}
-            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
+            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md border border-slate-200 transition-colors"
             title="Refresh Data"
           >
             <RefreshCw className="w-4 h-4" />
@@ -167,7 +164,7 @@ export default function TimetablePage() {
 
           <ExportActions
             title={`${activeEntityName} Timetable`}
-            subtitle={`Filter: ${filterType.toUpperCase()} — Term: 2026-Fall`}
+            subtitle={`Filter: ${filterType.toUpperCase()} — Academic Schedule`}
             gridData={gridMapForExport}
           />
         </div>

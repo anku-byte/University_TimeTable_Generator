@@ -76,7 +76,7 @@ export function FacultyManager() {
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow transition-colors"
+          className="px-3.5 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors"
         >
           <Plus className="w-4 h-4" /> Add Faculty Member
         </button>

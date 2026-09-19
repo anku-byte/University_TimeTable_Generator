@@ -1,11 +1,53 @@
-import { PrismaClient, RoomType } from '@prisma/client';
+import { PrismaClient, Role, RoomType } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding timetable database...');
+  console.log('Seeding CampusGrid database...');
 
-  // Clean existing data
+  // 1. Seed Initial Admin & Viewer Users
+  const adminName = process.env.ADMIN_NAME || 'Administrator';
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@campusgrid.edu';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'adminpassword123';
+
+  const hashedAdminPassword = await bcrypt.hash(adminPassword, 10);
+  const hashedViewerPassword = await bcrypt.hash('viewerpassword123', 10);
+
+  await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: {
+      name: adminName,
+      password: hashedAdminPassword,
+      role: Role.ADMIN,
+    },
+    create: {
+      name: adminName,
+      email: adminEmail,
+      password: hashedAdminPassword,
+      role: Role.ADMIN,
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: 'viewer@campusgrid.edu' },
+    update: {
+      name: 'Academic Viewer',
+      password: hashedViewerPassword,
+      role: Role.VIEWER,
+    },
+    create: {
+      name: 'Academic Viewer',
+      email: 'viewer@campusgrid.edu',
+      password: hashedViewerPassword,
+      role: Role.VIEWER,
+    },
+  });
+
+  console.log(`Admin user ready: ${adminEmail}`);
+  console.log(`Viewer user ready: viewer@campusgrid.edu`);
+
+  // 2. Clean existing academic resources
   await prisma.timetableSlot.deleteMany();
   await prisma.timetable.deleteMany();
   await prisma.sectionSubject.deleteMany();
@@ -13,17 +55,38 @@ async function main() {
   await prisma.room.deleteMany();
   await prisma.subject.deleteMany();
   await prisma.section.deleteMany();
+  await prisma.department.deleteMany();
 
-  // 1. Create Rooms
+  // 3. Create Departments
+  const cseDept = await prisma.department.create({
+    data: { name: 'Computer Science & Engineering', code: 'CSE' },
+  });
+  const eceDept = await prisma.department.create({
+    data: { name: 'Electronics & Communication Engineering', code: 'ECE' },
+  });
+  const eeeDept = await prisma.department.create({
+    data: { name: 'Electrical & Electronics Engineering', code: 'EEE' },
+  });
+  const mechDept = await prisma.department.create({
+    data: { name: 'Mechanical Engineering', code: 'MECH' },
+  });
+  const civilDept = await prisma.department.create({
+    data: { name: 'Civil Engineering', code: 'CIVIL' },
+  });
+  const mbaDept = await prisma.department.create({
+    data: { name: 'Master of Business Administration', code: 'MBA' },
+  });
+
+  // 4. Create Rooms
   const rooms = await Promise.all([
     prisma.room.create({ data: { name: 'Hall 101', capacity: 60, roomType: RoomType.LECTURE } }),
     prisma.room.create({ data: { name: 'Hall 102', capacity: 60, roomType: RoomType.LECTURE } }),
-    prisma.room.create({ data: { name: 'Hall 103', capacity: 45, roomType: RoomType.LECTURE } }),
+    prisma.room.create({ data: { name: 'Hall 201', capacity: 45, roomType: RoomType.LECTURE } }),
     prisma.room.create({ data: { name: 'Computer Lab 1', capacity: 40, roomType: RoomType.LAB } }),
     prisma.room.create({ data: { name: 'Electronics Lab', capacity: 35, roomType: RoomType.LAB } }),
   ]);
 
-  // 2. Create Faculty
+  // 5. Create Faculty
   const fullAvailability = {
     MONDAY: [0, 1, 2, 3, 4, 5],
     TUESDAY: [0, 1, 2, 3, 4, 5],
@@ -37,7 +100,7 @@ async function main() {
     prisma.faculty.create({
       data: {
         name: 'Dr. Alan Turing',
-        email: 'turing@university.edu',
+        email: 'turing@campusgrid.edu',
         maxHoursPerDay: 4,
         availabilityMatrix: fullAvailability,
       },
@@ -45,7 +108,7 @@ async function main() {
     prisma.faculty.create({
       data: {
         name: 'Prof. Grace Hopper',
-        email: 'hopper@university.edu',
+        email: 'hopper@campusgrid.edu',
         maxHoursPerDay: 4,
         availabilityMatrix: fullAvailability,
       },
@@ -53,7 +116,7 @@ async function main() {
     prisma.faculty.create({
       data: {
         name: 'Dr. Claude Shannon',
-        email: 'shannon@university.edu',
+        email: 'shannon@campusgrid.edu',
         maxHoursPerDay: 4,
         availabilityMatrix: fullAvailability,
       },
@@ -61,14 +124,14 @@ async function main() {
     prisma.faculty.create({
       data: {
         name: 'Prof. Barbara Liskov',
-        email: 'liskov@university.edu',
+        email: 'liskov@campusgrid.edu',
         maxHoursPerDay: 4,
         availabilityMatrix: fullAvailability,
       },
     }),
   ]);
 
-  // 3. Create Subjects
+  // 6. Create Subjects
   const subjects = await Promise.all([
     prisma.subject.create({
       data: {
@@ -117,22 +180,36 @@ async function main() {
     }),
   ]);
 
-  // 4. Create Sections
+  // 7. Create Sections
   const sections = await Promise.all([
     prisma.section.create({
-      data: { name: 'CS-3A', studentCount: 50, department: 'Computer Science' },
+      data: {
+        name: 'CS-3A',
+        studentCount: 50,
+        department: cseDept.name,
+        departmentId: cseDept.id,
+      },
     }),
     prisma.section.create({
-      data: { name: 'CS-3B', studentCount: 45, department: 'Computer Science' },
+      data: {
+        name: 'CS-3B',
+        studentCount: 45,
+        department: cseDept.name,
+        departmentId: cseDept.id,
+      },
     }),
     prisma.section.create({
-      data: { name: 'ECE-2A', studentCount: 30, department: 'Electronics' },
+      data: {
+        name: 'ECE-2A',
+        studentCount: 30,
+        department: eceDept.name,
+        departmentId: eceDept.id,
+      },
     }),
   ]);
 
-  // 5. Create SectionSubject Curriculum Bindings
+  // 8. Create SectionSubject Curriculum Bindings
   await Promise.all([
-    // CS-3A Curriculum
     prisma.sectionSubject.create({
       data: {
         sectionId: sections[0].id,
@@ -157,8 +234,6 @@ async function main() {
         weeklyHoursRequired: 3,
       },
     }),
-
-    // CS-3B Curriculum
     prisma.sectionSubject.create({
       data: {
         sectionId: sections[1].id,
@@ -175,8 +250,6 @@ async function main() {
         weeklyHoursRequired: 3,
       },
     }),
-
-    // ECE-2A Curriculum
     prisma.sectionSubject.create({
       data: {
         sectionId: sections[2].id,

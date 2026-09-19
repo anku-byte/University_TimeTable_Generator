@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Cpu, Sparkles, Loader2, PlayCircle } from 'lucide-react';
+import { Play, Loader2, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { ConflictList } from './conflict-list';
 
 export function GeneratorConfigForm() {
-  const [name, setName] = useState('Fall 2026 University Timetable');
+  const [name, setName] = useState('Fall Academic Timetable');
   const [academicTerm, setAcademicTerm] = useState('2026-Fall');
   const [totalSlotsPerDay, setTotalSlotsPerDay] = useState(6);
   const [maxBacktrackIterations, setMaxBacktrackIterations] = useState(50000);
@@ -18,14 +18,14 @@ export function GeneratorConfigForm() {
     e.preventDefault();
     setLoading(true);
     setSolverResult(null);
-    setProgressMsg('Initializing CSP Backtracking Engine & Domains...');
+    setProgressMsg('Evaluating resource constraints...');
 
     setTimeout(() => {
-      setProgressMsg('Evaluating Hard Constraints & Ordering Variables (MRV)...');
+      setProgressMsg('Computing valid class time slots...');
     }, 400);
 
     setTimeout(() => {
-      setProgressMsg('Executing Backtracking with LCV & Forward Checking...');
+      setProgressMsg('Finalizing clash-free schedule...');
     }, 800);
 
     try {
@@ -44,10 +44,10 @@ export function GeneratorConfigForm() {
       if (data.success) {
         setSolverResult(data);
       } else {
-        alert(data.error || 'Solver generation failed.');
+        alert(data.error || 'Timetable generation failed.');
       }
     } catch (err: any) {
-      alert(err.message || 'Error executing solver.');
+      alert(err.message || 'Error executing timetable generator.');
     } finally {
       setLoading(false);
     }
@@ -56,15 +56,10 @@ export function GeneratorConfigForm() {
   return (
     <div className="space-y-6">
       {/* Configuration Form Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-            <Cpu className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-base font-bold text-slate-800">CSP Generator Engine Parameters</h3>
-            <p className="text-xs text-slate-500">Configure solver scope, slots per day, and max backtrack search depth.</p>
-          </div>
+      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
+        <div className="border-b border-slate-100 pb-4 mb-5">
+          <h3 className="text-base font-semibold text-slate-900">Schedule Parameters</h3>
+          <p className="text-xs text-slate-500">Specify schedule name, academic term, and daily slot structure.</p>
         </div>
 
         <form onSubmit={handleGenerate} className="space-y-5">
@@ -76,7 +71,7 @@ export function GeneratorConfigForm() {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-1 focus:ring-blue-900 outline-none text-slate-900"
               />
             </div>
 
@@ -87,7 +82,7 @@ export function GeneratorConfigForm() {
                 required
                 value={academicTerm}
                 onChange={(e) => setAcademicTerm(e.target.value)}
-                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-1 focus:ring-blue-900 outline-none text-slate-900"
               />
             </div>
           </div>
@@ -98,7 +93,7 @@ export function GeneratorConfigForm() {
               <select
                 value={totalSlotsPerDay}
                 onChange={(e) => setTotalSlotsPerDay(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-1 focus:ring-blue-900 outline-none text-slate-900 bg-white"
               >
                 <option value={4}>4 Slots (09:00 AM - 01:00 PM)</option>
                 <option value={6}>6 Slots (09:00 AM - 04:00 PM - Standard)</option>
@@ -107,7 +102,7 @@ export function GeneratorConfigForm() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Max Backtrack Search Iterations</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Max Iterations Limit</label>
               <input
                 type="number"
                 step={5000}
@@ -115,22 +110,22 @@ export function GeneratorConfigForm() {
                 max={100000}
                 value={maxBacktrackIterations}
                 onChange={(e) => setMaxBacktrackIterations(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-1 focus:ring-blue-900 outline-none text-slate-900"
               />
             </div>
           </div>
 
-          {/* Hard Constraints Summary */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2">
-            <span className="font-bold text-slate-800 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-indigo-600" /> Active Enforced Constraints:
+          {/* Enforced Safeguards Summary */}
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-xs space-y-2">
+            <span className="font-semibold text-slate-800 flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-blue-900" /> Active Scheduling Constraints Enforced:
             </span>
             <ul className="grid grid-cols-1 md:grid-cols-2 gap-1.5 text-slate-600 list-disc list-inside">
               <li>No Faculty double-booking across sections or rooms</li>
-              <li>No Room double-booking at the same time</li>
-              <li>Room capacity &ge; Section student strength</li>
-              <li>Strict Room Type matching (LAB vs LECTURE)</li>
-              <li>Faculty daily max teaching hours enforced</li>
+              <li>No Room double-booking at the same time slot</li>
+              <li>Room capacity exceeds section student strength</li>
+              <li>Room type compatibility (Lecture Hall vs Lab)</li>
+              <li>Faculty max hours per day limit enforced</li>
               <li>Faculty availability matrix respected</li>
             </ul>
           </div>
@@ -139,7 +134,7 @@ export function GeneratorConfigForm() {
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 transition-all disabled:opacity-50"
+              className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white rounded-md text-xs font-medium shadow-xs flex items-center gap-2 transition-colors disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -147,7 +142,7 @@ export function GeneratorConfigForm() {
                 </>
               ) : (
                 <>
-                  <PlayCircle className="w-5 h-5" /> Execute CSP Backtracking Generator
+                  <Play className="w-4 h-4" /> Generate Timetable
                 </>
               )}
             </button>
@@ -155,7 +150,7 @@ export function GeneratorConfigForm() {
         </form>
       </div>
 
-      {/* Solver Results Diagnostic Panel */}
+      {/* Generation Results Diagnostic Panel */}
       {solverResult && (
         <ConflictList
           conflicts={solverResult.result.conflicts}
@@ -163,6 +158,7 @@ export function GeneratorConfigForm() {
           totalCount={solverResult.summary.totalCount}
           executionTimeMs={solverResult.summary.executionTimeMs}
           score={solverResult.summary.score}
+          timetableId={solverResult.timetableId}
         />
       )}
     </div>
