@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { mockStore, MockTimetableSlot } from '@/lib/mockStore';
 import { DayOfWeek } from '@/lib/solver/types';

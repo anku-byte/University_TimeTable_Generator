@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { ClassAllocator } from '@/components/allocation/class-allocator';
 
