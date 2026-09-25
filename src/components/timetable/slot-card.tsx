@@ -16,6 +16,8 @@ export interface TimetableSlotData {
   facultyName: string;
   roomId: string;
   roomName: string;
+  batchGroup?: string;
+  coFaculty?: string[];
   hasConflict?: boolean;
 }
 
@@ -35,6 +37,7 @@ export function SlotCard({ slot, filterType, onDragStart }: SlotCardProps) {
   }
 
   const isLab = slot.roomType === 'LAB';
+  const hasGroup = slot.batchGroup && slot.batchGroup !== 'ALL';
 
   return (
     <div
@@ -52,13 +55,20 @@ export function SlotCard({ slot, filterType, onDragStart }: SlotCardProps) {
         <span className="font-bold text-xs tracking-tight flex items-center gap-1 font-mono">
           <BookOpen className="w-3 h-3 text-slate-500" /> {slot.subjectCode}
         </span>
-        <span
-          className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
-            isLab ? 'bg-purple-200 text-purple-800' : 'bg-indigo-200 text-indigo-800'
-          }`}
-        >
-          {isLab ? 'LAB' : 'LEC'}
-        </span>
+        <div className="flex items-center gap-1">
+          {hasGroup && (
+            <span className="text-[9px] px-1 py-0.5 rounded font-bold bg-amber-100 text-amber-800 border border-amber-200">
+              {slot.batchGroup === 'GROUP_A' ? 'Grp A' : slot.batchGroup === 'GROUP_B' ? 'Grp B' : slot.batchGroup}
+            </span>
+          )}
+          <span
+            className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+              isLab ? 'bg-purple-200 text-purple-800' : 'bg-indigo-200 text-indigo-800'
+            }`}
+          >
+            {isLab ? 'LAB' : 'LEC'}
+          </span>
+        </div>
       </div>
 
       <div className="text-[11px] font-medium truncate text-slate-800">

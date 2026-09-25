@@ -26,15 +26,18 @@ export function TimetableGrid({
     return true;
   });
 
-  // Map slots by day and slot index: gridMap[DAY][SLOT_INDEX] = slot
-  const gridMap: Record<string, Record<number, TimetableSlotData>> = {};
+  // Map slots by day and slot index: gridMap[DAY][SLOT_INDEX] = slot[]
+  const gridMap: Record<string, Record<number, TimetableSlotData[]>> = {};
   DAYS_OF_WEEK.forEach((day) => {
     gridMap[day.key] = {};
   });
 
   filteredSlots.forEach((slot) => {
     if (gridMap[slot.dayOfWeek]) {
-      gridMap[slot.dayOfWeek][slot.timeSlotIndex] = slot;
+      if (!gridMap[slot.dayOfWeek][slot.timeSlotIndex]) {
+        gridMap[slot.dayOfWeek][slot.timeSlotIndex] = [];
+      }
+      gridMap[slot.dayOfWeek][slot.timeSlotIndex].push(slot);
     }
   });
 
@@ -60,13 +63,19 @@ export function TimetableGrid({
     if (draggedSlot.dayOfWeek === dayKey && draggedSlot.timeSlotIndex === slotIndex) return;
 
     // Check collision for hard constraints
-    const targetOccupiedSlot = gridMap[dayKey]?.[slotIndex];
+    const targetOccupiedSlots = gridMap[dayKey]?.[slotIndex] || [];
     let conflictFound = false;
     let reason = '';
 
-    if (targetOccupiedSlot) {
+    // If target has 'ALL' or matching group
+    const groupConflict = targetOccupiedSlots.find((s) => {
+      if (!draggedSlot.batchGroup || draggedSlot.batchGroup === 'ALL') return true;
+      return !s.batchGroup || s.batchGroup === 'ALL' || s.batchGroup === draggedSlot.batchGroup;
+    });
+
+    if (groupConflict) {
       conflictFound = true;
-      reason = `Slot is already assigned to ${targetOccupiedSlot.subjectCode} (${targetOccupiedSlot.sectionName}) in ${targetOccupiedSlot.roomName}.`;
+      reason = `Slot is already assigned to ${groupConflict.subjectCode} (${groupConflict.sectionName}) in ${groupConflict.roomName}.`;
     }
 
     // Check if faculty is double booked in another section at this new time
@@ -120,30 +129,50 @@ export function TimetableGrid({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {TIME_SLOTS.map((timeSlot) => (
-              <tr key={timeSlot.index} className="hover:bg-slate-50/50 transition-colors">
-                {/* Time Column */}
-                <td className="p-3 border-r border-slate-200 bg-slate-50/80 text-xs font-bold text-slate-700">
-                  <div className="font-mono text-[11px] text-indigo-600">{timeSlot.label}</div>
-                  <div className="text-[10px] text-slate-400 font-normal">{timeSlot.time}</div>
-                </td>
-
-                {/* Day Columns */}
-                {DAYS_OF_WEEK.map((day) => {
-                  const slot = gridMap[day.key]?.[timeSlot.index];
-                  return (
-                    <td
-                      key={day.key}
-                      onDragOver={handleDragOver}
-                      onDrop={() => handleDrop(day.key, timeSlot.index)}
-                      className="p-2 border-r border-slate-100 last:border-r-0 align-top transition-colors hover:bg-indigo-50/20"
-                    >
-                      <SlotCard slot={slot} filterType={filterType} onDragStart={handleDragStart} />
+            {TIME_SLOTS.map((timeSlot) => {
+              const isFirstAfternoon = timeSlot.index === 4;
+              return (
+                <>
+                  {isFirstAfternoon && (
+                    <tr key="lunch-break-row" className="bg-amber-50/60 border-y border-amber-200/80">
+                      <td colSpan={DAYS_OF_WEEK.length + 1} className="py-2 text-center text-xs font-bold text-amber-900 tracking-wider">
+                        🍱 LUNCH BREAK & RECESS (01:00 PM - 02:00 PM)
+                      </td>
+                    </tr>
+                  )}
+                  <tr key={timeSlot.index} className="hover:bg-slate-50/50 transition-colors">
+                    {/* Time Column */}
+                    <td className="p-3 border-r border-slate-200 bg-slate-50/80 text-xs font-bold text-slate-700">
+                      <div className="font-mono text-[11px] text-indigo-600">{timeSlot.label}</div>
+                      <div className="text-[10px] text-slate-400 font-normal">{timeSlot.time}</div>
                     </td>
-                  );
-                })}
-              </tr>
-            ))}
+
+                    {/* Day Columns */}
+                    {DAYS_OF_WEEK.map((day) => {
+                      const daySlots = gridMap[day.key]?.[timeSlot.index] || [];
+                      return (
+                        <td
+                          key={day.key}
+                          onDragOver={handleDragOver}
+                          onDrop={() => handleDrop(day.key, timeSlot.index)}
+                          className="p-2 border-r border-slate-100 last:border-r-0 align-top transition-colors hover:bg-indigo-50/20"
+                        >
+                          {daySlots.length === 0 ? (
+                            <SlotCard filterType={filterType} onDragStart={handleDragStart} />
+                          ) : (
+                            <div className="space-y-1.5">
+                              {daySlots.map((s) => (
+                                <SlotCard key={s.id} slot={s} filterType={filterType} onDragStart={handleDragStart} />
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </>
+              );
+            })}
           </tbody>
         </table>
       </div>

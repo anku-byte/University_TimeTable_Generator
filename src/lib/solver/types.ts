@@ -36,15 +36,21 @@ export interface CSPSectionSubject {
   subject: CSPSubject;
   faculty: CSPFaculty;
   weeklyHoursRequired: number;
+  batchGroup?: 'ALL' | 'GROUP_A' | 'GROUP_B';
+  durationHours?: number; // 1 for theory, 2 for lab
+  coFaculty?: CSPFaculty[];
 }
 
-// Represents a 1-hour session variable to be scheduled
+// Represents a schedulable session variable (1 hour or multi-hour block)
 export interface LectureVariable {
-  id: string; // e.g. "SEC1-SUB1-slot-0"
+  id: string; // e.g. "SEC1-SUB1-GA-slot-0"
   section: CSPSection;
   subject: CSPSubject;
   faculty: CSPFaculty;
+  coFaculty?: CSPFaculty[];
   sessionIndex: number; // 0..weeklyHoursRequired-1
+  batchGroup: 'ALL' | 'GROUP_A' | 'GROUP_B';
+  durationHours: number; // 1 for theory, 2 for lab block
   assignedSlot?: DomainValue;
 }
 
@@ -52,6 +58,7 @@ export interface LectureVariable {
 export interface DomainValue {
   dayOfWeek: DayOfWeek;
   timeSlotIndex: number;
+  durationHours: number;
   room: CSPRoom;
 }
 
@@ -60,6 +67,7 @@ export interface ConflictRecord {
   sectionName: string;
   subjectCode: string;
   facultyName: string;
+  batchGroup?: string;
   reason: string;
 }
 
@@ -73,6 +81,8 @@ export interface SolverResult {
     roomId: string;
     dayOfWeek: DayOfWeek;
     timeSlotIndex: number;
+    batchGroup?: string;
+    coFaculty?: string[];
   }>;
   unplacedVariables: LectureVariable[];
   conflicts: ConflictRecord[];
@@ -81,3 +91,24 @@ export interface SolverResult {
   totalVariablesCount: number;
   placedVariablesCount: number;
 }
+
+export interface AllocationRecommendation {
+  dayOfWeek: DayOfWeek;
+  startSlotIndex: number;
+  endSlotIndex: number;
+  durationHours: number;
+  timeLabel: string;
+  room: CSPRoom;
+  faculty: { id: string; name: string };
+  coFaculty?: Array<{ id: string; name: string }>;
+  score: number;
+  isAlternative: boolean;
+}
+
+export interface AllocationResult {
+  success: boolean;
+  recommendations: AllocationRecommendation[];
+  conflicts: string[];
+  analyzedSlotsCount: number;
+}
+
