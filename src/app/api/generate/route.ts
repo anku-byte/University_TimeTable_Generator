@@ -41,15 +41,17 @@ export async function POST(req: Request) {
           name: a.faculty.name,
           maxHoursPerDay: a.faculty.maxHoursPerDay,
           availability: (a.faculty.availabilityMatrix as Record<DayOfWeek, number[]>) || {
-            MONDAY: [0, 1, 2, 3, 4, 5],
-            TUESDAY: [0, 1, 2, 3, 4, 5],
-            WEDNESDAY: [0, 1, 2, 3, 4, 5],
-            THURSDAY: [0, 1, 2, 3, 4, 5],
-            FRIDAY: [0, 1, 2, 3, 4, 5],
+            MONDAY: [0, 1, 2, 3, 4, 5, 6, 7],
+            TUESDAY: [0, 1, 2, 3, 4, 5, 6, 7],
+            WEDNESDAY: [0, 1, 2, 3, 4, 5, 6, 7],
+            THURSDAY: [0, 1, 2, 3, 4, 5, 6, 7],
+            FRIDAY: [0, 1, 2, 3, 4, 5, 6, 7],
             SATURDAY: [0, 1, 2, 3],
           },
         },
         weeklyHoursRequired: a.weeklyHoursRequired,
+        batchGroup: (a.batchGroup as any) || 'ALL',
+        durationHours: a.durationHours || (a.subject.preferredRoomType === 'LAB' ? 2 : 1),
       }));
     } catch {
       // DB Fallback using mockStore
@@ -81,6 +83,8 @@ export async function POST(req: Request) {
             availability: fac.availabilityMatrix as Record<DayOfWeek, number[]>,
           },
           weeklyHoursRequired: a.weeklyHoursRequired,
+          batchGroup: a.batchGroup || 'ALL',
+          durationHours: a.durationHours || (sub.preferredRoomType === 'LAB' ? 2 : 1),
         };
       });
     }
@@ -94,7 +98,7 @@ export async function POST(req: Request) {
 
     // Run CSP Solver
     const engine = new CSPEngine(assignments, rooms, {
-      totalSlotsPerDay: config.totalSlotsPerDay,
+      totalSlotsPerDay: config.totalSlotsPerDay || 8,
       maxBacktrackIterations: config.maxBacktrackIterations,
     });
 
@@ -117,6 +121,8 @@ export async function POST(req: Request) {
         subjectId: s.subjectId,
         facultyId: s.facultyId,
         roomId: s.roomId,
+        batchGroup: s.batchGroup || 'ALL',
+        coFaculty: s.coFaculty,
       })),
     };
 
@@ -136,6 +142,8 @@ export async function POST(req: Request) {
                 subjectId: s.subjectId,
                 facultyId: s.facultyId,
                 roomId: s.roomId,
+                batchGroup: s.batchGroup || 'ALL',
+                coFaculty: s.coFaculty,
               })),
             },
           },

@@ -82,9 +82,34 @@ model Department {
   id        String    @id @default(cuid())
   name      String    @unique // e.g., "Computer Science & Engineering"
   code      String    @unique // e.g., "CSE"
+  programs  Program[]
   sections  Section[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+}
+
+model Program {
+  id           String      @id @default(cuid())
+  name         String      // e.g. "Bachelor of Technology in Computer Science"
+  code         String      @unique // e.g. "BTECH-CSE", "MCA", "MTECH-CSE"
+  departmentId String
+  department   Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  sections     Section[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model AcademicCalendar {
+  id                   String    @id @default(cuid())
+  termName             String    @unique // e.g. "2026-Odd"
+  startDate            DateTime
+  endDate              DateTime
+  totalTeachingWeeks   Int       @default(15)
+  creditHourMultiplier Int       @default(10) // e.g. 1 credit = 10 classes
+  workingDays          Json      // ["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"]
+  periodStructure      Json      // array of slot objects with times & lunch flags
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }
 
 model Section {
@@ -94,6 +119,9 @@ model Section {
   department     String           @default("Computer Science")
   departmentId   String?
   departmentRef  Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  semester       Int?             @default(1)
+  programId      String?
+  programRef     Program?         @relation(fields: [programId], references: [id], onDelete: SetNull)
   assignments    SectionSubject[]
   timetableSlots TimetableSlot[]
   createdAt      DateTime         @default(now())
@@ -107,12 +135,15 @@ model SectionSubject {
   subjectId           String
   facultyId           String
   weeklyHoursRequired Int      @default(3)
+  batchGroup          String   @default("ALL") // "ALL", "GROUP_A", "GROUP_B"
+  durationHours       Int      @default(1)     // 1 for theory, 2 for lab block
+  coFacultyIds        Json?    // Optional co-faculty instructor IDs for labs
 
   section             Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   subject             Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   faculty             Faculty  @relation(fields: [facultyId], references: [id], onDelete: Cascade)
 
-  @@unique([sectionId, subjectId])
+  @@unique([sectionId, subjectId, batchGroup])
   @@index([facultyId])
 }
 
@@ -135,6 +166,8 @@ model TimetableSlot {
   subjectId     String
   facultyId     String
   roomId        String
+  batchGroup    String    @default("ALL") // "ALL", "GROUP_A", "GROUP_B"
+  coFaculty     Json?     // List of co-faculty for labs
 
   timetable     Timetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
   section       Section   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
@@ -143,7 +176,7 @@ model TimetableSlot {
   room          Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
   // Hard Constraint Unique Safeguards
-  @@unique([timetableId, dayOfWeek, timeSlotIndex, sectionId], name: "unique_section_slot")
+  @@unique([timetableId, dayOfWeek, timeSlotIndex, sectionId, batchGroup], name: "unique_section_slot")
   @@unique([timetableId, dayOfWeek, timeSlotIndex, facultyId], name: "unique_faculty_slot")
   @@unique([timetableId, dayOfWeek, timeSlotIndex, roomId], name: "unique_room_slot")
 

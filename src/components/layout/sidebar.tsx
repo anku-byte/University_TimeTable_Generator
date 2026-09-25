@@ -16,6 +16,7 @@ import {
   Shield,
   Eye,
   FolderTree,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -151,18 +152,46 @@ export function Sidebar() {
           <p className="px-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Timetable</p>
           <div className="space-y-1">
             {isAdmin && (
-              <Link
-                href="/admin/generate"
-                className={cn(
-                  'flex items-center space-x-3 px-3 py-2 rounded-md text-xs font-medium transition-colors',
-                  pathname === '/admin/generate'
-                    ? 'bg-blue-900 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                )}
-              >
-                <Play className="h-3.5 w-3.5 text-slate-400" />
-                <span>Generate Timetable</span>
-              </Link>
+              <>
+                <Link
+                  href="/admin/allocate"
+                  className={cn(
+                    'flex items-center space-x-3 px-3 py-2 rounded-md text-xs font-medium transition-colors',
+                    pathname === '/admin/allocate'
+                      ? 'bg-blue-900 text-white'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  )}
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-blue-400" />
+                  <span>Class Allocation</span>
+                </Link>
+
+                <Link
+                  href="/admin/progress"
+                  className={cn(
+                    'flex items-center space-x-3 px-3 py-2 rounded-md text-xs font-medium transition-colors',
+                    pathname === '/admin/progress'
+                      ? 'bg-blue-900 text-white'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  )}
+                >
+                  <CalendarDays className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Progress & Credits</span>
+                </Link>
+
+                <Link
+                  href="/admin/generate"
+                  className={cn(
+                    'flex items-center space-x-3 px-3 py-2 rounded-md text-xs font-medium transition-colors',
+                    pathname === '/admin/generate'
+                      ? 'bg-blue-900 text-white'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  )}
+                >
+                  <Play className="h-3.5 w-3.5 text-slate-400" />
+                  <span>Batch Generator</span>
+                </Link>
+              </>
             )}
 
             <Link
