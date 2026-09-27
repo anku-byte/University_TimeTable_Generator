@@ -55,6 +55,7 @@ export async function POST(req: Request) {
           mockStore.faculties.push({
             id: `f_csv_${Date.now()}_${importedCount}`,
             name: r.name,
+            code: r.code || r.name.substring(0, 3).toUpperCase(),
             email: r.email,
             maxHoursPerDay: maxHours,
             availabilityMatrix: {

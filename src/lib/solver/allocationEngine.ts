@@ -237,8 +237,8 @@ export class AllocationEngine {
             const seatWaste = room.capacity - requiredCapacity;
             score -= Math.min(20, Math.floor(seatWaste / 5));
 
-            // Theory prefers morning; Labs prefer afternoon or mid-day
-            if (this.subject.preferredRoomType === 'THEORY' && startDef && !startDef.isAfternoon) score += 10;
+            // Theory/Lecture prefers morning; Labs prefer afternoon or mid-day
+            if (this.subject.preferredRoomType === 'LECTURE' && startDef && !startDef.isAfternoon) score += 10;
             if (this.subject.preferredRoomType === 'LAB' && startDef && startDef.isAfternoon) score += 10;
 
             recommendations.push({

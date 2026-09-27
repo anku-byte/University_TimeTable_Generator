@@ -24,7 +24,7 @@ export interface MockAcademicCalendar {
 export interface MockFaculty {
   id: string;
   name: string;
-  code: string;
+  code?: string;
   email: string;
   maxHoursPerDay: number;
   availabilityMatrix: Record<string, number[]>;
