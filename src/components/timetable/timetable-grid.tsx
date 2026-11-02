@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { TIME_SLOTS, DAYS_OF_WEEK } from '@/lib/utils';
 import { SlotCard, TimetableSlotData } from './slot-card';
 import { DragOverrideModal } from './drag-override-modal';
@@ -132,7 +132,7 @@ export function TimetableGrid({
             {TIME_SLOTS.map((timeSlot) => {
               const isFirstAfternoon = timeSlot.index === 4;
               return (
-                <>
+                <React.Fragment key={`period-row-${timeSlot.index}`}>
                   {isFirstAfternoon && (
                     <tr key="lunch-break-row" className="bg-amber-50/60 border-y border-amber-200/80">
                       <td colSpan={DAYS_OF_WEEK.length + 1} className="py-2 text-center text-xs font-bold text-amber-900 tracking-wider">
@@ -140,7 +140,7 @@ export function TimetableGrid({
                       </td>
                     </tr>
                   )}
-                  <tr key={timeSlot.index} className="hover:bg-slate-50/50 transition-colors">
+                  <tr key={`slot-row-${timeSlot.index}`} className="hover:bg-slate-50/50 transition-colors">
                     {/* Time Column */}
                     <td className="p-3 border-r border-slate-200 bg-slate-50/80 text-xs font-bold text-slate-700">
                       <div className="font-mono text-[11px] text-indigo-600">{timeSlot.label}</div>
@@ -152,7 +152,7 @@ export function TimetableGrid({
                       const daySlots = gridMap[day.key]?.[timeSlot.index] || [];
                       return (
                         <td
-                          key={day.key}
+                          key={`cell-${day.key}-${timeSlot.index}`}
                           onDragOver={handleDragOver}
                           onDrop={() => handleDrop(day.key, timeSlot.index)}
                           className="p-2 border-r border-slate-100 last:border-r-0 align-top transition-colors hover:bg-indigo-50/20"
@@ -170,7 +170,7 @@ export function TimetableGrid({
                       );
                     })}
                   </tr>
-                </>
+                </React.Fragment>
               );
             })}
           </tbody>

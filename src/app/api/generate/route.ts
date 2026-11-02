@@ -1,190 +1,146 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { mockStore } from '@/lib/mockStore';
-import { CSPEngine } from '@/lib/solver/cspEngine';
-import { CSPRoom, CSPSectionSubject, DayOfWeek } from '@/lib/solver/types';
-import { generatorConfigSchema } from '@/schemas';
+import { generate } from '@/lib/solver/autoSolver';
+import { getSession } from '@/lib/auth';
+
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const config = generatorConfigSchema.parse(body);
-
-    let rooms: CSPRoom[] = [];
-    let assignments: CSPSectionSubject[] = [];
-
-    try {
-      const dbRooms = await db.room.findMany();
-      const dbAssignments = await db.sectionSubject.findMany({
-        include: { section: true, subject: true, faculty: true },
-      });
-
-      rooms = dbRooms.map((r) => ({
-        id: r.id,
-        name: r.name,
-        capacity: r.capacity,
-        roomType: r.roomType as 'LECTURE' | 'LAB',
-      }));
-
-      assignments = dbAssignments.map((a) => ({
-        id: a.id,
-        section: { id: a.section.id, name: a.section.name, studentCount: a.section.studentCount },
-        subject: {
-          id: a.subject.id,
-          code: a.subject.code,
-          name: a.subject.name,
-          preferredRoomType: a.subject.preferredRoomType as 'LECTURE' | 'LAB',
-          requiredHoursPerWeek: a.subject.requiredHoursPerWeek,
-        },
-        faculty: {
-          id: a.faculty.id,
-          name: a.faculty.name,
-          maxHoursPerDay: a.faculty.maxHoursPerDay,
-          availability: (a.faculty.availabilityMatrix as Record<DayOfWeek, number[]>) || {
-            MONDAY: [0, 1, 2, 3, 4, 5, 6, 7],
-            TUESDAY: [0, 1, 2, 3, 4, 5, 6, 7],
-            WEDNESDAY: [0, 1, 2, 3, 4, 5, 6, 7],
-            THURSDAY: [0, 1, 2, 3, 4, 5, 6, 7],
-            FRIDAY: [0, 1, 2, 3, 4, 5, 6, 7],
-            SATURDAY: [0, 1, 2, 3],
-          },
-        },
-        weeklyHoursRequired: a.weeklyHoursRequired,
-        batchGroup: (a.batchGroup as any) || 'ALL',
-        durationHours: a.durationHours || (a.subject.preferredRoomType === 'LAB' ? 2 : 1),
-      }));
-    } catch {
-      // DB Fallback using mockStore
-      rooms = mockStore.rooms.map((r) => ({
-        id: r.id,
-        name: r.name,
-        capacity: r.capacity,
-        roomType: r.roomType,
-      }));
-
-      assignments = mockStore.assignments.map((a) => {
-        const sec = mockStore.sections.find((s) => s.id === a.sectionId)!;
-        const sub = mockStore.subjects.find((s) => s.id === a.subjectId)!;
-        const fac = mockStore.faculties.find((f) => f.id === a.facultyId)!;
-        return {
-          id: a.id,
-          section: { id: sec.id, name: sec.name, studentCount: sec.studentCount },
-          subject: {
-            id: sub.id,
-            code: sub.code,
-            name: sub.name,
-            preferredRoomType: sub.preferredRoomType,
-            requiredHoursPerWeek: sub.requiredHoursPerWeek,
-          },
-          faculty: {
-            id: fac.id,
-            name: fac.name,
-            maxHoursPerDay: fac.maxHoursPerDay,
-            availability: fac.availabilityMatrix as Record<DayOfWeek, number[]>,
-          },
-          weeklyHoursRequired: a.weeklyHoursRequired,
-          batchGroup: a.batchGroup || 'ALL',
-          durationHours: a.durationHours || (sub.preferredRoomType === 'LAB' ? 2 : 1),
-        };
-      });
-    }
-
-    if (rooms.length === 0 || assignments.length === 0) {
+    // Auth check: Admin only
+    const session = await getSession();
+    if (!session || session.role !== 'ADMIN') {
       return NextResponse.json(
-        { success: false, error: 'Cannot generate schedule: Rooms or Section Curriculum assignments are empty.' },
-        { status: 400 }
+        { ok: false, problems: ['Unauthorized: Admin access required to generate timetables.'] },
+        { status: 403 }
       );
     }
 
-    // Run CSP Solver
-    const engine = new CSPEngine(assignments, rooms, {
-      totalSlotsPerDay: config.totalSlotsPerDay || 8,
-      maxBacktrackIterations: config.maxBacktrackIterations,
-    });
-
-    const result = engine.solve();
-
-    // Persist Timetable & Slots in DB / Mock store
-    const timetableId = `tt_${Date.now()}`;
-    const timetableRecord = {
-      id: timetableId,
-      name: config.name,
-      academicTerm: config.academicTerm,
-      status: result.success ? 'GENERATED' : ('DRAFT' as any),
-      createdAt: new Date().toISOString(),
-      slots: result.placedSlots.map((s, idx) => ({
-        id: `slot_${idx}_${Date.now()}`,
-        timetableId,
-        dayOfWeek: s.dayOfWeek,
-        timeSlotIndex: s.timeSlotIndex,
-        sectionId: s.sectionId,
-        subjectId: s.subjectId,
-        facultyId: s.facultyId,
-        roomId: s.roomId,
-        batchGroup: s.batchGroup || 'ALL',
-        coFaculty: s.coFaculty,
-      })),
-    };
-
-    try {
-      const createdTt = await db.timetable.create({
+    let cal = await db.academicCalendar.findFirst({ orderBy: { startDate: 'desc' } });
+    if (!cal) {
+      // Create a default calendar if none exists
+      cal = await db.academicCalendar.create({
         data: {
-          id: timetableId,
-          name: config.name,
-          academicTerm: config.academicTerm,
-          status: result.success ? 'GENERATED' : 'DRAFT',
-          slots: {
-            createMany: {
-              data: result.placedSlots.map((s) => ({
-                dayOfWeek: s.dayOfWeek,
-                timeSlotIndex: s.timeSlotIndex,
-                sectionId: s.sectionId,
-                subjectId: s.subjectId,
-                facultyId: s.facultyId,
-                roomId: s.roomId,
-                batchGroup: s.batchGroup || 'ALL',
-                coFaculty: s.coFaculty,
-              })),
-            },
-          },
+          termName: '2026-Fall',
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000),
+          totalTeachingWeeks: 15,
+          creditHourMultiplier: 10,
+          workingDays: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'],
+          periodStructure: [
+            { index: 0, label: '1st (09:00 - 10:00)', isLunch: false },
+            { index: 1, label: '2nd (10:00 - 11:00)', isLunch: false },
+            { index: 2, label: '3rd (11:00 - 12:00)', isLunch: false },
+            { index: 3, label: '4th (12:00 - 01:00)', isLunch: false },
+            { index: 4, label: '5th (02:00 - 03:00)', isLunch: false },
+            { index: 5, label: '6th (03:00 - 04:00)', isLunch: false },
+            { index: 6, label: '7th (04:00 - 05:00)', isLunch: false },
+            { index: 7, label: '8th (05:00 - 06:00)', isLunch: false },
+          ],
         },
       });
-    } catch {
-      mockStore.timetables.push(timetableRecord as any);
+    }
+
+    const [sections, subjects, faculty, rooms, assignments, curriculum, eligibility] =
+      await Promise.all([
+        db.section.findMany(),
+        db.subject.findMany(),
+        db.faculty.findMany(),
+        db.room.findMany(),
+        db.sectionSubject.findMany(),
+        db.curriculumSubject.findMany(),
+        db.facultySubject.findMany(),
+      ]);
+
+    const result = generate({
+      calendar: {
+        workingDays: cal.workingDays as any,
+        periodStructure: (cal.periodStructure as any) || [],
+      },
+      sections: sections as any,
+      subjects: subjects as any,
+      faculty: faculty as any,
+      rooms: rooms as any,
+      assignments: assignments as any,
+      curriculum: curriculum as any,
+      eligibility: eligibility as any,
+    });
+
+    let timetableId: string | null = null;
+
+    if (result.slots.length > 0 || result.ok) {
+      const savedTt = await db.$transaction(async (tx) => {
+        if (result.newAssignments.length > 0) {
+          await tx.sectionSubject.createMany({
+            data: result.newAssignments.map((a) => ({
+              sectionId: a.sectionId,
+              subjectId: a.subjectId,
+              facultyId: a.facultyId,
+              weeklyHoursRequired: a.weeklyHoursRequired,
+              batchGroup: a.batchGroup || 'ALL',
+              durationHours: a.durationHours || 1,
+            })),
+            skipDuplicates: true,
+          });
+        }
+
+        const tt = await tx.timetable.create({
+          data: {
+            name: `Generated ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`,
+            academicTerm: cal!.termName,
+            status: result.ok ? 'GENERATED' : 'DRAFT',
+          },
+        });
+
+        await tx.timetableSlot.createMany({
+          data: result.slots.map((s) => ({
+            timetableId: tt.id,
+            dayOfWeek: s.dayOfWeek as any,
+            timeSlotIndex: s.timeSlotIndex,
+            sectionId: s.sectionId,
+            subjectId: s.subjectId,
+            facultyId: s.facultyId,
+            roomId: s.roomId,
+            batchGroup: s.batchGroup,
+            coFaculty: s.coFaculty ? (s.coFaculty as any) : undefined,
+          })),
+        });
+
+        return tt;
+      });
+
+      timetableId = savedTt.id;
     }
 
     return NextResponse.json({
-      success: true,
+      ok: result.ok,
       timetableId,
-      result,
-      summary: {
-        placedCount: result.placedVariablesCount,
-        totalCount: result.totalVariablesCount,
-        executionTimeMs: result.executionTimeMs,
-        score: result.score,
-        conflictsCount: result.conflicts.length,
-      },
+      problems: result.problems,
     });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('Timetable generation error:', error);
+    return NextResponse.json(
+      {
+        ok: false,
+        timetableId: null,
+        problems: [error.message || 'Internal error occurred during timetable generation.'],
+      },
+      { status: 200 }
+    );
   }
 }
 
 export async function GET() {
   try {
-    try {
-      const timetables = await db.timetable.findMany({
-        include: {
-          slots: {
-            include: { section: true, subject: true, faculty: true, room: true },
-          },
+    const timetables = await db.timetable.findMany({
+      include: {
+        slots: {
+          include: { section: true, subject: true, faculty: true, room: true },
         },
-        orderBy: { createdAt: 'desc' },
-      });
-      return NextResponse.json({ success: true, data: timetables });
-    } catch {
-      return NextResponse.json({ success: true, data: mockStore.timetables, isFallback: true });
-    }
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return NextResponse.json({ success: true, data: timetables });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

@@ -5,7 +5,13 @@ import { sectionSchema } from '@/schemas';
 
 export async function GET() {
   try {
-    const sections = await db.section.findMany({ orderBy: { name: 'asc' } });
+    const sections = await db.section.findMany({
+      include: {
+        programRef: { select: { id: true, name: true, code: true } },
+        departmentRef: { select: { id: true, name: true, code: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
     return NextResponse.json({ success: true, data: sections });
   } catch (error) {
     return NextResponse.json({ success: true, data: mockStore.sections, isFallback: true });
@@ -23,6 +29,9 @@ export async function POST(req: Request) {
           name: validated.name,
           studentCount: validated.studentCount,
           department: validated.department,
+          departmentId: validated.departmentId || null,
+          programId: validated.programId,
+          semester: validated.semester,
         },
       });
       return NextResponse.json({ success: true, data: created });
@@ -32,8 +41,10 @@ export async function POST(req: Request) {
         name: validated.name,
         studentCount: validated.studentCount,
         department: validated.department,
+        programId: validated.programId,
+        semester: validated.semester,
       };
-      mockStore.sections.push(mockSection);
+      mockStore.sections.push(mockSection as any);
       return NextResponse.json({ success: true, data: mockSection, isFallback: true });
     }
   } catch (error: any) {
@@ -49,11 +60,13 @@ export async function DELETE(req: Request) {
 
     try {
       await db.section.delete({ where: { id } });
+      return NextResponse.json({ success: true });
     } catch {
-      mockStore.sections = mockStore.sections.filter((s) => s.id !== id);
+      const index = mockStore.sections.findIndex((s) => s.id === id);
+      if (index !== -1) mockStore.sections.splice(index, 1);
+      return NextResponse.json({ success: true, isFallback: true });
     }
-    return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
   }
 }

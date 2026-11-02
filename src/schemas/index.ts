@@ -4,6 +4,8 @@ export const facultySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   maxHoursPerDay: z.number().min(1).max(8).default(4),
+  maxHoursPerWeek: z.number().min(1).max(40).default(18),
+  departmentId: z.string().optional(),
   availabilityMatrix: z.record(z.array(z.number())).optional(),
 });
 
@@ -26,8 +28,8 @@ export const sectionSchema = z.object({
   studentCount: z.number().min(1, 'Student count must be at least 1'),
   department: z.string().min(1, 'Department is required'),
   departmentId: z.string().optional(),
-  programId: z.string().optional(),
-  semester: z.number().min(1).max(10).optional(),
+  programId: z.string().min(1, 'Program is required'),
+  semester: z.number().min(1).max(10, 'Semester must be between 1 and 10'),
 });
 
 export const assignmentSchema = z.object({
@@ -38,6 +40,20 @@ export const assignmentSchema = z.object({
   batchGroup: z.enum(['ALL', 'GROUP_A', 'GROUP_B']).default('ALL'),
   durationHours: z.number().min(1).max(4).default(1),
   coFacultyIds: z.array(z.string()).optional(),
+});
+
+export const facultySubjectSchema = z.object({
+  facultyId: z.string().min(1, 'Faculty is required'),
+  subjectId: z.string().min(1, 'Subject is required'),
+});
+
+export const curriculumSubjectSchema = z.object({
+  programId: z.string().min(1, 'Program is required'),
+  semester: z.number().min(1).max(10),
+  subjectId: z.string().min(1, 'Subject is required'),
+  weeklyHours: z.number().min(1).max(10).optional().nullable(),
+  durationHours: z.number().min(1).max(4).default(1),
+  splitIntoGroups: z.boolean().default(false),
 });
 
 export const generatorConfigSchema = z.object({
@@ -61,4 +77,3 @@ export const allocationRequestSchema = z.object({
   coFacultyIds: z.array(z.string()).optional(),
   timetableId: z.string().optional(),
 });
-

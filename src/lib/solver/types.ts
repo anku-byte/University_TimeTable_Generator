@@ -1,5 +1,6 @@
 export type DayOfWeek = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY';
 export type RoomType = 'LECTURE' | 'LAB';
+export type SessionType = 'LECTURE' | 'LAB' | 'SEMINAR' | 'PROJECT';
 
 export interface CSPSubject {
   id: string;
@@ -13,7 +14,7 @@ export interface CSPFaculty {
   id: string;
   name: string;
   maxHoursPerDay: number;
-  availability: Record<DayOfWeek, number[]>; // List of available slot indices per day
+  availability: Record<DayOfWeek, number[]>;
 }
 
 export interface CSPRoom {
@@ -21,6 +22,13 @@ export interface CSPRoom {
   name: string;
   capacity: number;
   roomType: RoomType;
+  departmentId?: string | null;
+}
+
+export interface CSPBatch {
+  id: string;
+  name: string;
+  studentCount: number;
 }
 
 export interface CSPSection {
@@ -28,37 +36,47 @@ export interface CSPSection {
   name: string;
   studentCount: number;
   department?: string;
+  departmentId?: string | null;
+  programId?: string | null;
 }
 
 export interface CSPSectionSubject {
   id: string;
   section: CSPSection;
   subject: CSPSubject;
-  faculty: CSPFaculty;
+  faculty?: CSPFaculty;          // Primary faculty (legacy compat)
+  facultyGroup: CSPFaculty[];    // All faculty for the session
   weeklyHoursRequired: number;
-  batchGroup?: 'ALL' | 'GROUP_A' | 'GROUP_B';
-  durationHours?: number; // 1 for theory, 2 for lab
-  coFaculty?: CSPFaculty[];
+  sessionType: SessionType;
+  blockSizeHours: number;        // 1 for theory, 2-3 for labs
+  batch?: CSPBatch;              // Null means whole section; set means sub-batch
 }
 
-// Represents a schedulable session variable (1 hour or multi-hour block)
+export interface ProgramConfig {
+  id?: string;
+  name?: string;
+  slotsPerDay: number;
+  days: DayOfWeek[];
+  slotTimes?: any;
+}
+
+// Represents a schedulable session variable (1 or more consecutive hours)
 export interface LectureVariable {
-  id: string; // e.g. "SEC1-SUB1-GA-slot-0"
+  id: string;
   section: CSPSection;
   subject: CSPSubject;
-  faculty: CSPFaculty;
-  coFaculty?: CSPFaculty[];
-  sessionIndex: number; // 0..weeklyHoursRequired-1
-  batchGroup: 'ALL' | 'GROUP_A' | 'GROUP_B';
-  durationHours: number; // 1 for theory, 2 for lab block
+  facultyGroup: CSPFaculty[];
+  sessionIndex: number;
+  sessionType: SessionType;
+  blockSizeHours: number;
+  batch?: CSPBatch;
   assignedSlot?: DomainValue;
 }
 
-// Domain value representing candidate time and room placement
+// Domain value: a candidate (day, start slot, room) placement
 export interface DomainValue {
   dayOfWeek: DayOfWeek;
-  timeSlotIndex: number;
-  durationHours: number;
+  timeSlotIndex: number; // Starting slot index of the block
   room: CSPRoom;
 }
 
@@ -67,7 +85,6 @@ export interface ConflictRecord {
   sectionName: string;
   subjectCode: string;
   facultyName: string;
-  batchGroup?: string;
   reason: string;
 }
 
@@ -77,12 +94,15 @@ export interface SolverResult {
     variableId: string;
     sectionId: string;
     subjectId: string;
-    facultyId: string;
+    facultyId: string;       // Primary faculty ID (backward compat)
+    facultyIds: string[];    // All faculty IDs for the session
     roomId: string;
     dayOfWeek: DayOfWeek;
     timeSlotIndex: number;
-    batchGroup?: string;
-    coFaculty?: string[];
+    sessionType: SessionType;
+    blockSizeHours: number;
+    blockGroupId?: string;
+    batchId?: string;
   }>;
   unplacedVariables: LectureVariable[];
   conflicts: ConflictRecord[];
@@ -111,4 +131,3 @@ export interface AllocationResult {
   conflicts: string[];
   analyzedSlotsCount: number;
 }
-

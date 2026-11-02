@@ -47,8 +47,11 @@ model Faculty {
   id                 String           @id @default(cuid())
   name               String
   email              String           @unique
+  departmentId       String?
   maxHoursPerDay     Int              @default(4)
+  maxHoursPerWeek    Int              @default(18)
   availabilityMatrix Json             // Structure: { "MONDAY": [0,1,2,3,4,5], "TUESDAY": ... }
+  expertise          FacultySubject[]
   assignments        SectionSubject[]
   timetableSlots     TimetableSlot[]
   createdAt          DateTime         @default(now())
@@ -66,16 +69,18 @@ model Room {
 }
 
 model Subject {
-  id                   String           @id @default(cuid())
-  code                 String           @unique // e.g., "CS-301"
+  id                   String              @id @default(cuid())
+  code                 String              @unique // e.g., "CS-301"
   name                 String
-  credits              Int              @default(3)
-  requiredHoursPerWeek Int              @default(3)
-  preferredRoomType    RoomType         @default(LECTURE)
+  credits              Int                 @default(3)
+  requiredHoursPerWeek Int                 @default(3)
+  preferredRoomType    RoomType            @default(LECTURE)
   assignments          SectionSubject[]
   timetableSlots       TimetableSlot[]
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
+  curriculumEntries    CurriculumSubject[]
+  facultyExpertise     FacultySubject[]
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 }
 
 model Department {
@@ -89,14 +94,41 @@ model Department {
 }
 
 model Program {
-  id           String      @id @default(cuid())
-  name         String      // e.g. "Bachelor of Technology in Computer Science"
-  code         String      @unique // e.g. "BTECH-CSE", "MCA", "MTECH-CSE"
+  id           String              @id @default(cuid())
+  name         String              // e.g. "Bachelor of Technology in Computer Science"
+  code         String              @unique // e.g. "BTECH-CSE", "MCA", "MTECH-CSE"
   departmentId String
-  department   Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  department   Department          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   sections     Section[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  curriculum   CurriculumSubject[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+}
+
+model FacultySubject {
+  id        String   @id @default(cuid())
+  facultyId String
+  subjectId String
+  faculty   Faculty  @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([facultyId, subjectId])
+}
+
+model CurriculumSubject {
+  id               String   @id @default(cuid())
+  programId        String
+  semester         Int
+  subjectId        String
+  weeklyHours      Int?
+  durationHours    Int      @default(1)
+  splitIntoGroups  Boolean  @default(false)
+  program          Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  subject          Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+
+  @@unique([programId, semester, subjectId])
 }
 
 model AcademicCalendar {

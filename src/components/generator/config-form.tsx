@@ -1,53 +1,50 @@
 'use client';
 
 import { useState } from 'react';
-import { Play, Loader2, CheckCircle2, ShieldCheck } from 'lucide-react';
-import { ConflictList } from './conflict-list';
+import { useRouter } from 'next/navigation';
+import { Play, Loader2, CheckCircle2, ShieldCheck, AlertTriangle, ArrowRight } from 'lucide-react';
 
 export function GeneratorConfigForm() {
-  const [name, setName] = useState('Fall Academic Timetable');
-  const [academicTerm, setAcademicTerm] = useState('2026-Fall');
-  const [totalSlotsPerDay, setTotalSlotsPerDay] = useState(6);
-  const [maxBacktrackIterations, setMaxBacktrackIterations] = useState(50000);
-
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [progressMsg, setProgressMsg] = useState('');
-  const [solverResult, setSolverResult] = useState<any>(null);
+  const [result, setResult] = useState<{
+    ok: boolean;
+    timetableId: string | null;
+    problems: string[];
+  } | null>(null);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setSolverResult(null);
-    setProgressMsg('Evaluating resource constraints...');
+    setResult(null);
+    setProgressMsg('Step 1: Auto-resolving curriculum & assigning qualified faculty...');
 
     setTimeout(() => {
-      setProgressMsg('Computing valid class time slots...');
-    }, 400);
-
-    setTimeout(() => {
-      setProgressMsg('Finalizing clash-free schedule...');
-    }, 800);
+      setProgressMsg('Step 2: Scheduling periods, rooms, and clash-free constraints...');
+    }, 1500);
 
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          academicTerm,
-          totalSlotsPerDay: Number(totalSlotsPerDay),
-          maxBacktrackIterations: Number(maxBacktrackIterations),
-        }),
       });
 
       const data = await res.json();
-      if (data.success) {
-        setSolverResult(data);
-      } else {
-        alert(data.error || 'Timetable generation failed.');
+      setResult(data);
+
+      if (data.ok && data.timetableId) {
+        // If 100% clash-free, give a brief success moment then redirect to timetable
+        setTimeout(() => {
+          router.push(`/timetable?id=${data.timetableId}`);
+        }, 1200);
       }
     } catch (err: any) {
-      alert(err.message || 'Error executing timetable generator.');
+      setResult({
+        ok: false,
+        timetableId: null,
+        problems: [err.message || 'Error executing timetable generator.'],
+      });
     } finally {
       setLoading(false);
     }
@@ -55,78 +52,28 @@ export function GeneratorConfigForm() {
 
   return (
     <div className="space-y-6">
-      {/* Configuration Form Card */}
+      {/* Parameters Card */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
         <div className="border-b border-slate-100 pb-4 mb-5">
-          <h3 className="text-base font-semibold text-slate-900">Schedule Parameters</h3>
-          <p className="text-xs text-slate-500">Specify schedule name, academic term, and daily slot structure.</p>
+          <h3 className="text-base font-semibold text-slate-900">Automatic Schedule Generator</h3>
+          <p className="text-xs text-slate-500">
+            Automatically reads all Section Curricula and qualified Faculty Expertise, balances weekly teaching loads, and computes an optimal, clash-free timetable.
+          </p>
         </div>
 
         <form onSubmit={handleGenerate} className="space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Schedule Name</label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-1 focus:ring-blue-900 outline-none text-slate-900"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Academic Term / Semester</label>
-              <input
-                type="text"
-                required
-                value={academicTerm}
-                onChange={(e) => setAcademicTerm(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-1 focus:ring-blue-900 outline-none text-slate-900"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Total Daily Time Slots</label>
-              <select
-                value={totalSlotsPerDay}
-                onChange={(e) => setTotalSlotsPerDay(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-1 focus:ring-blue-900 outline-none text-slate-900 bg-white"
-              >
-                <option value={4}>4 Slots (09:00 AM - 01:00 PM)</option>
-                <option value={6}>6 Slots (09:00 AM - 04:00 PM - Standard)</option>
-                <option value={8}>8 Slots (08:00 AM - 05:00 PM - Full Day)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Max Iterations Limit</label>
-              <input
-                type="number"
-                step={5000}
-                min={1000}
-                max={100000}
-                value={maxBacktrackIterations}
-                onChange={(e) => setMaxBacktrackIterations(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-xs focus:ring-1 focus:ring-blue-900 outline-none text-slate-900"
-              />
-            </div>
-          </div>
-
-          {/* Enforced Safeguards Summary */}
+          {/* Active Constraints */}
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-xs space-y-2">
             <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-blue-900" /> Active Scheduling Constraints Enforced:
+              <ShieldCheck className="w-4 h-4 text-blue-900" /> Auto-Solver Rules & Safeguards Enforced:
             </span>
-            <ul className="grid grid-cols-1 md:grid-cols-2 gap-1.5 text-slate-600 list-disc list-inside">
-              <li>No Faculty double-booking across sections or rooms</li>
-              <li>No Room double-booking at the same time slot</li>
-              <li>Room capacity exceeds section student strength</li>
-              <li>Room type compatibility (Lecture Hall vs Lab)</li>
-              <li>Faculty max hours per day limit enforced</li>
-              <li>Faculty availability matrix respected</li>
+            <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-slate-600 list-disc list-inside">
+              <li>Auto-assigns subjects to sections based on Program Curriculum</li>
+              <li>Matches only faculty with declared teaching eligibility</li>
+              <li>Balances weekly teaching loads across faculty (max 18h default)</li>
+              <li>Zero faculty double-booking & daily max hour limits enforced</li>
+              <li>Parallel lab sessions (Group A & Group B) assigned independent labs</li>
+              <li>Consecutive lab blocks (2-3h) never cross the 1:00 PM lunch break</li>
             </ul>
           </div>
 
@@ -134,7 +81,7 @@ export function GeneratorConfigForm() {
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white rounded-md text-xs font-medium shadow-xs flex items-center gap-2 transition-colors disabled:opacity-50"
+              className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white rounded-md text-xs font-semibold shadow-xs flex items-center gap-2 transition-colors disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -142,7 +89,7 @@ export function GeneratorConfigForm() {
                 </>
               ) : (
                 <>
-                  <Play className="w-4 h-4" /> Generate Timetable
+                  <Play className="w-4 h-4 fill-current" /> Run Full Automatic Generation
                 </>
               )}
             </button>
@@ -150,16 +97,65 @@ export function GeneratorConfigForm() {
         </form>
       </div>
 
-      {/* Generation Results Diagnostic Panel */}
-      {solverResult && (
-        <ConflictList
-          conflicts={solverResult.result.conflicts}
-          placedCount={solverResult.summary.placedCount}
-          totalCount={solverResult.summary.totalCount}
-          executionTimeMs={solverResult.summary.executionTimeMs}
-          score={solverResult.summary.score}
-          timetableId={solverResult.timetableId}
-        />
+      {/* Result & Diagnostics Panel */}
+      {result && (
+        <div
+          className={`rounded-xl border p-6 space-y-4 shadow-xs ${
+            result.ok
+              ? 'bg-emerald-50/50 border-emerald-200'
+              : 'bg-amber-50/50 border-amber-200'
+          }`}
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2.5">
+              {result.ok ? (
+                <div className="p-2 bg-emerald-100 rounded-lg text-emerald-800">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+              ) : (
+                <div className="p-2 bg-amber-100 rounded-lg text-amber-800">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+              )}
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">
+                  {result.ok
+                    ? 'Timetable Successfully Generated!'
+                    : 'Partial Generation / Scheduling Bottlenecks Detected'}
+                </h4>
+                <p className="text-xs text-slate-600">
+                  {result.ok
+                    ? 'All section curricula placed with zero clashes. Redirecting to timetable view...'
+                    : 'The solver produced a partial or draft schedule. Review the diagnostic items below:'}
+                </p>
+              </div>
+            </div>
+
+            {result.timetableId && (
+              <button
+                onClick={() => router.push(`/timetable?id=${result.timetableId}`)}
+                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors shrink-0"
+              >
+                View Timetable <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Problems List */}
+          {result.problems && result.problems.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-slate-200/60">
+              <span className="text-xs font-bold text-slate-800">Diagnostic Messages & Conflicts:</span>
+              <ul className="space-y-1.5 text-xs text-slate-700 bg-white/80 rounded-lg p-3 border border-slate-200 max-h-60 overflow-y-auto">
+                {result.problems.map((problem, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-amber-600 font-bold">•</span>
+                    <span>{problem}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
