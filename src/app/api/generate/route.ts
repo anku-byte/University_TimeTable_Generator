@@ -56,6 +56,8 @@ export async function POST(req: Request) {
       calendar: {
         workingDays: cal.workingDays as any,
         periodStructure: (cal.periodStructure as any) || [],
+        labStartPeriods: (cal as any).labStartPeriods ? ((cal as any).labStartPeriods as number[]) : undefined,
+        isSummer: (cal as any).isSummer ?? false,
       },
       sections: sections as any,
       subjects: subjects as any,
@@ -79,6 +81,7 @@ export async function POST(req: Request) {
               weeklyHoursRequired: a.weeklyHoursRequired,
               batchGroup: a.batchGroup || 'ALL',
               durationHours: a.durationHours || 1,
+              sharedGroupKey: a.sharedGroupKey ?? null,
             })),
             skipDuplicates: true,
           });
@@ -102,6 +105,9 @@ export async function POST(req: Request) {
             facultyId: s.facultyId,
             roomId: s.roomId,
             batchGroup: s.batchGroup,
+            sharedGroupKey: s.sharedGroupKey ?? null,
+            isLabBlock: s.isLabBlock ?? false,
+            labBlockStart: s.labBlockStart ?? false,
             coFaculty: s.coFaculty ? (s.coFaculty as any) : undefined,
           })),
         });
@@ -140,7 +146,17 @@ export async function GET() {
       },
       orderBy: { createdAt: 'desc' },
     });
-    return NextResponse.json({ success: true, data: timetables });
+    const calendars = await db.academicCalendar.findMany({
+      where: { termName: { in: [...new Set(timetables.map((timetable) => timetable.academicTerm))] } },
+    });
+    const calendarByTerm = new Map(calendars.map((calendar) => [calendar.termName, calendar]));
+    return NextResponse.json({
+      success: true,
+      data: timetables.map((timetable) => ({
+        ...timetable,
+        calendar: calendarByTerm.get(timetable.academicTerm) ?? null,
+      })),
+    });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

@@ -48,6 +48,7 @@ model Faculty {
   name               String
   email              String           @unique
   departmentId       String?
+  isGuestFaculty     Boolean          @default(false)
   maxHoursPerDay     Int              @default(4)
   maxHoursPerWeek    Int              @default(18)
   availabilityMatrix Json             // Structure: { "MONDAY": [0,1,2,3,4,5], "TUESDAY": ... }
@@ -64,6 +65,8 @@ model Room {
   capacity       Int
   roomType       RoomType        @default(LECTURE)
   timetableSlots TimetableSlot[]
+  homeSections   Section[]       @relation("SectionHomeRoom")
+  labSubjects    Subject[]       @relation("SubjectLabRoom")
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 }
@@ -72,9 +75,15 @@ model Subject {
   id                   String              @id @default(cuid())
   code                 String              @unique // e.g., "CS-301"
   name                 String
+  subjectType          String              @default("THEORY") // "THEORY" | "LAB" | "TUTORIAL"
   credits              Int                 @default(3)
   requiredHoursPerWeek Int                 @default(3)
   preferredRoomType    RoomType            @default(LECTURE)
+  labRoomId            String?
+  labRoom              Room?               @relation("SubjectLabRoom", fields: [labRoomId], references: [id], onDelete: SetNull)
+  parentSubjectId      String?
+  parentSubject        Subject?            @relation("SubjectLabLink", fields: [parentSubjectId], references: [id], onDelete: SetNull)
+  childSubjects        Subject[]           @relation("SubjectLabLink")
   assignments          SectionSubject[]
   timetableSlots       TimetableSlot[]
   curriculumEntries    CurriculumSubject[]
@@ -97,6 +106,8 @@ model Program {
   id           String              @id @default(cuid())
   name         String              // e.g. "Bachelor of Technology in Computer Science"
   code         String              @unique // e.g. "BTECH-CSE", "MCA", "MTECH-CSE"
+  programType  String              @default("BTECH") // "BTECH" | "MTECH" | "MCA" | "MSC" | "IMSCA"
+  streamName   String?             // e.g. "CSE", "AIML", "IT"
   departmentId String
   department   Department          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   sections     Section[]
@@ -117,16 +128,19 @@ model FacultySubject {
 }
 
 model CurriculumSubject {
-  id               String   @id @default(cuid())
-  programId        String
-  semester         Int
-  subjectId        String
-  weeklyHours      Int?
-  durationHours    Int      @default(1)
-  splitIntoGroups  Boolean  @default(false)
-  program          Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
-  subject          Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  createdAt        DateTime @default(now())
+  id                String   @id @default(cuid())
+  programId         String
+  semester          Int
+  subjectId         String
+  weeklyHours       Int?
+  durationHours     Int      @default(1)
+  maxPeriodsPerWeek Int?
+  splitIntoGroups   Boolean  @default(false)
+  isElective        Boolean  @default(false)
+  sharedGroupKey    String?
+  program           Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  subject           Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
 
   @@unique([programId, semester, subjectId])
 }
@@ -134,12 +148,15 @@ model CurriculumSubject {
 model AcademicCalendar {
   id                   String    @id @default(cuid())
   termName             String    @unique // e.g. "2026-Odd"
+  termType             String    @default("ODD")    // "ODD" | "EVEN"
+  isSummer             Boolean   @default(false)    // true = morning-only schedule
   startDate            DateTime
   endDate              DateTime
   totalTeachingWeeks   Int       @default(15)
   creditHourMultiplier Int       @default(10) // e.g. 1 credit = 10 classes
   workingDays          Json      // ["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"]
   periodStructure      Json      // array of slot objects with times & lunch flags
+  labStartPeriods      Json?     // override [0,2,5] for special schedules e.g. summer [0,2,4]
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 }
@@ -154,6 +171,8 @@ model Section {
   semester       Int?             @default(1)
   programId      String?
   programRef     Program?         @relation(fields: [programId], references: [id], onDelete: SetNull)
+  homeRoomId     String?
+  homeRoom       Room?            @relation("SectionHomeRoom", fields: [homeRoomId], references: [id], onDelete: SetNull)
   assignments    SectionSubject[]
   timetableSlots TimetableSlot[]
   createdAt      DateTime         @default(now())
@@ -169,6 +188,7 @@ model SectionSubject {
   weeklyHoursRequired Int      @default(3)
   batchGroup          String   @default("ALL") // "ALL", "GROUP_A", "GROUP_B"
   durationHours       Int      @default(1)     // 1 for theory, 2 for lab block
+  sharedGroupKey      String?
   coFacultyIds        Json?    // Optional co-faculty instructor IDs for labs
 
   section             Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
@@ -199,6 +219,9 @@ model TimetableSlot {
   facultyId     String
   roomId        String
   batchGroup    String    @default("ALL") // "ALL", "GROUP_A", "GROUP_B"
+  sharedGroupKey String?
+  isLabBlock    Boolean   @default(false)
+  labBlockStart Boolean   @default(false)
   coFaculty     Json?     // List of co-faculty for labs
 
   timetable     Timetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
@@ -207,10 +230,10 @@ model TimetableSlot {
   faculty       Faculty   @relation(fields: [facultyId], references: [id], onDelete: Cascade)
   room          Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
-  // Hard Constraint Unique Safeguards
+  // Hard Constraint Safeguards
   @@unique([timetableId, dayOfWeek, timeSlotIndex, sectionId, batchGroup], name: "unique_section_slot")
-  @@unique([timetableId, dayOfWeek, timeSlotIndex, facultyId], name: "unique_faculty_slot")
-  @@unique([timetableId, dayOfWeek, timeSlotIndex, roomId], name: "unique_room_slot")
+  @@index([timetableId, dayOfWeek, timeSlotIndex, facultyId])
+  @@index([timetableId, dayOfWeek, timeSlotIndex, roomId])
 
   @@index([timetableId])
   @@index([sectionId])

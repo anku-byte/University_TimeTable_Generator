@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { TIME_SLOTS, DAYS_OF_WEEK } from '@/lib/utils';
+import { DAYS_OF_WEEK, TIME_SLOTS, TimeSlotDef } from '@/lib/utils';
 import { SlotCard, TimetableSlotData } from './slot-card';
 import { DragOverrideModal } from './drag-override-modal';
 
@@ -10,6 +10,9 @@ interface TimetableGridProps {
   filterType: 'section' | 'faculty' | 'room';
   selectedEntityId: string;
   onSlotMove?: (movedSlot: TimetableSlotData, newDay: string, newSlotIndex: number) => void;
+  timeSlots?: TimeSlotDef[];
+  days?: ReadonlyArray<{ key: string; label: string }>;
+  isSummer?: boolean;
 }
 
 export function TimetableGrid({
@@ -17,6 +20,9 @@ export function TimetableGrid({
   filterType,
   selectedEntityId,
   onSlotMove,
+  timeSlots = TIME_SLOTS,
+  days = DAYS_OF_WEEK,
+  isSummer = false,
 }: TimetableGridProps) {
   // Filter slots for active entity
   const filteredSlots = slots.filter((s) => {
@@ -26,9 +32,38 @@ export function TimetableGrid({
     return true;
   });
 
+  const isMatchingLabPair = (start: TimetableSlotData, continuation: TimetableSlotData) =>
+    start.isLabBlock === true &&
+    start.labBlockStart === true &&
+    continuation.isLabBlock === true &&
+    continuation.labBlockStart === false &&
+    continuation.timeSlotIndex === start.timeSlotIndex + 1 &&
+    continuation.dayOfWeek === start.dayOfWeek &&
+    continuation.sectionId === start.sectionId &&
+    continuation.subjectId === start.subjectId &&
+    continuation.facultyId === start.facultyId &&
+    continuation.roomId === start.roomId &&
+    continuation.batchGroup === start.batchGroup;
+
+  const hasCompleteLabPairCell = (dayKey: string, slotIndex: number) => {
+    const starts = gridMap[dayKey]?.[slotIndex] ?? [];
+    const continuations = gridMap[dayKey]?.[slotIndex + 1] ?? [];
+    if (starts.length === 0 || starts.length !== continuations.length) return false;
+
+    const matched = new Set<number>();
+    for (const start of starts) {
+      const continuationIndex = continuations.findIndex(
+        (continuation, index) => !matched.has(index) && isMatchingLabPair(start, continuation)
+      );
+      if (continuationIndex === -1) return false;
+      matched.add(continuationIndex);
+    }
+    return matched.size === continuations.length;
+  };
+
   // Map slots by day and slot index: gridMap[DAY][SLOT_INDEX] = slot[]
   const gridMap: Record<string, Record<number, TimetableSlotData[]>> = {};
-  DAYS_OF_WEEK.forEach((day) => {
+  days.forEach((day) => {
     gridMap[day.key] = {};
   });
 
@@ -121,7 +156,7 @@ export function TimetableGrid({
           <thead>
             <tr className="bg-slate-900 text-white text-xs font-semibold uppercase tracking-wider">
               <th className="p-3.5 w-36 border-r border-slate-800">Time Slot</th>
-              {DAYS_OF_WEEK.map((day) => (
+              {days.map((day) => (
                 <th key={day.key} className="p-3.5 text-center border-r border-slate-800 last:border-r-0">
                   {day.label}
                 </th>
@@ -129,13 +164,13 @@ export function TimetableGrid({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {TIME_SLOTS.map((timeSlot) => {
-              const isFirstAfternoon = timeSlot.index === 4;
+            {timeSlots.map((timeSlot) => {
+              const isFirstAfternoon = !isSummer && timeSlot.index === 4;
               return (
                 <React.Fragment key={`period-row-${timeSlot.index}`}>
                   {isFirstAfternoon && (
                     <tr key="lunch-break-row" className="bg-amber-50/60 border-y border-amber-200/80">
-                      <td colSpan={DAYS_OF_WEEK.length + 1} className="py-2 text-center text-xs font-bold text-amber-900 tracking-wider">
+                      <td colSpan={days.length + 1} className="py-2 text-center text-xs font-bold text-amber-900 tracking-wider">
                         🍱 LUNCH BREAK & RECESS (01:00 PM - 02:00 PM)
                       </td>
                     </tr>
@@ -148,11 +183,17 @@ export function TimetableGrid({
                     </td>
 
                     {/* Day Columns */}
-                    {DAYS_OF_WEEK.map((day) => {
+                    {days.map((day) => {
                       const daySlots = gridMap[day.key]?.[timeSlot.index] || [];
+                      const mergedStart = hasCompleteLabPairCell(day.key, timeSlot.index);
+                      const mergedContinuation =
+                        timeSlot.index > 0 && hasCompleteLabPairCell(day.key, timeSlot.index - 1);
+                      if (mergedContinuation) return null;
+
                       return (
                         <td
                           key={`cell-${day.key}-${timeSlot.index}`}
+                          rowSpan={mergedStart ? 2 : undefined}
                           onDragOver={handleDragOver}
                           onDrop={() => handleDrop(day.key, timeSlot.index)}
                           className="p-2 border-r border-slate-100 last:border-r-0 align-top transition-colors hover:bg-indigo-50/20"
@@ -162,7 +203,7 @@ export function TimetableGrid({
                           ) : (
                             <div className="space-y-1.5">
                               {daySlots.map((s) => (
-                                <SlotCard key={s.id} slot={s} filterType={filterType} onDragStart={handleDragStart} />
+                                <SlotCard key={s.id} slot={s} filterType={filterType} onDragStart={handleDragStart} mergedLab={mergedStart} />
                               ))}
                             </div>
                           )}

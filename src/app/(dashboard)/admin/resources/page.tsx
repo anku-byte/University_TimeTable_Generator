@@ -2,8 +2,9 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Users, Building, BookOpen, Layers, Upload, FolderTree, GraduationCap, CalendarRange } from 'lucide-react';
+import { Users, Building, BookOpen, Layers, Upload, FolderTree, GraduationCap, CalendarRange, CalendarDays } from 'lucide-react';
 import { DepartmentManager } from '@/components/resources/department-manager';
+import { CalendarManager } from '@/components/resources/calendar-manager';
 import { FacultyManager } from '@/components/resources/faculty-manager';
 import { RoomManager } from '@/components/resources/room-manager';
 import { SubjectManager } from '@/components/resources/subject-manager';
@@ -17,7 +18,7 @@ function ResourcesContent() {
   const tabParam = searchParams.get('tab');
 
   const [activeTab, setActiveTab] = useState<
-    'departments' | 'faculty' | 'room' | 'subject' | 'section' | 'curriculum' | 'expertise'
+    'departments' | 'faculty' | 'room' | 'subject' | 'section' | 'curriculum' | 'expertise' | 'calendars'
   >('departments');
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -27,7 +28,7 @@ function ResourcesContent() {
       if (tabParam === 'courses') setActiveTab('subject');
       else if (tabParam === 'rooms') setActiveTab('room');
       else if (tabParam === 'sections') setActiveTab('section');
-      else if (['departments', 'faculty', 'room', 'subject', 'section', 'curriculum', 'expertise'].includes(tabParam)) {
+      else if (['departments', 'faculty', 'room', 'subject', 'section', 'curriculum', 'expertise', 'calendars'].includes(tabParam)) {
         setActiveTab(tabParam as any);
       }
     }
@@ -36,6 +37,7 @@ function ResourcesContent() {
   const tabs = [
     { id: 'departments', label: 'Departments', icon: FolderTree },
     { id: 'curriculum', label: 'Curriculum Plan', icon: CalendarRange },
+    { id: 'calendars', label: 'Academic Calendars', icon: CalendarDays },
     { id: 'expertise', label: 'Faculty Eligibility', icon: GraduationCap },
     { id: 'faculty', label: 'Faculty Staff', icon: Users },
     { id: 'room', label: 'Classrooms & Labs', icon: Building },
@@ -87,6 +89,7 @@ function ResourcesContent() {
       <div key={refreshKey} className="pt-2">
         {activeTab === 'departments' && <DepartmentManager />}
         {activeTab === 'curriculum' && <CurriculumSubjectManager />}
+        {activeTab === 'calendars' && <CalendarManager />}
         {activeTab === 'expertise' && <FacultySubjectManager />}
         {activeTab === 'faculty' && <FacultyManager />}
         {activeTab === 'room' && <RoomManager />}

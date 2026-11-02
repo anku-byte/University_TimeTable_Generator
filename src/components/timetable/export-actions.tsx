@@ -2,14 +2,23 @@
 
 import { useState } from 'react';
 import { Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { DAYS_OF_WEEK, TIME_SLOTS, TimeSlotDef } from '@/lib/utils';
 
 interface ExportActionsProps {
   title: string;
   subtitle: string;
   gridData: Record<string, Record<number, any>>;
+  timeSlots?: TimeSlotDef[];
+  days?: ReadonlyArray<{ key: string; label: string }>;
 }
 
-export function ExportActions({ title, subtitle, gridData }: ExportActionsProps) {
+export function ExportActions({
+  title,
+  subtitle,
+  gridData,
+  timeSlots = TIME_SLOTS,
+  days = DAYS_OF_WEEK,
+}: ExportActionsProps) {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadingExcel, setDownloadingExcel] = useState(false);
 
@@ -19,7 +28,7 @@ export function ExportActions({ title, subtitle, gridData }: ExportActionsProps)
       const res = await fetch('/api/export/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, subtitle, gridData }),
+        body: JSON.stringify({ title, subtitle, gridData, timeSlots, days }),
       });
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -40,7 +49,7 @@ export function ExportActions({ title, subtitle, gridData }: ExportActionsProps)
       const res = await fetch('/api/export/excel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, gridData }),
+        body: JSON.stringify({ title, gridData, timeSlots, days }),
       });
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);

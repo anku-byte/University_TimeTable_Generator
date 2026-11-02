@@ -4,18 +4,20 @@ import { TIME_SLOTS, DAYS_OF_WEEK } from '@/lib/utils';
 
 export async function POST(req: Request) {
   try {
-    const { title, gridData } = await req.json();
+    const { title, gridData, timeSlots: configuredSlots, days: configuredDays } = await req.json();
+    const timeSlots = Array.isArray(configuredSlots) ? configuredSlots : TIME_SLOTS;
+    const days = Array.isArray(configuredDays) ? configuredDays : DAYS_OF_WEEK;
 
     // Create a new workbook
     const wb = XLSX.utils.book_new();
 
     // Format grid rows: Header row -> Time Slots
-    const headers = ['Day / Time', ...TIME_SLOTS.map((t) => t.time)];
+    const headers = ['Day / Time', ...timeSlots.map((t: (typeof TIME_SLOTS)[number]) => t.time)];
     const sheetRows: string[][] = [headers];
 
-    for (const day of DAYS_OF_WEEK) {
+    for (const day of days) {
       const row: string[] = [day.label];
-      for (const slot of TIME_SLOTS) {
+      for (const slot of timeSlots) {
         const slotData = gridData?.[day.key]?.[slot.index];
         if (slotData) {
           row.push(`${slotData.subjectCode}\n${slotData.facultyName}\n[${slotData.roomName}]`);

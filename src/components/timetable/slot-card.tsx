@@ -18,6 +18,8 @@ export interface TimetableSlotData {
   roomName: string;
   batchGroup?: string;
   coFaculty?: string[];
+  isLabBlock?: boolean;
+  labBlockStart?: boolean;
   hasConflict?: boolean;
 }
 
@@ -25,9 +27,10 @@ interface SlotCardProps {
   slot?: TimetableSlotData;
   filterType: 'section' | 'faculty' | 'room';
   onDragStart?: (e: React.DragEvent, slot: TimetableSlotData) => void;
+  mergedLab?: boolean;
 }
 
-export function SlotCard({ slot, filterType, onDragStart }: SlotCardProps) {
+export function SlotCard({ slot, filterType, onDragStart, mergedLab = false }: SlotCardProps) {
   if (!slot) {
     return (
       <div className="h-24 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 flex items-center justify-center text-[11px] font-medium text-slate-400">
@@ -43,7 +46,7 @@ export function SlotCard({ slot, filterType, onDragStart }: SlotCardProps) {
     <div
       draggable
       onDragStart={(e) => onDragStart && onDragStart(e, slot)}
-      className={`h-24 p-2.5 rounded-xl border transition-all cursor-grab active:cursor-grabbing shadow-sm flex flex-col justify-between ${
+      className={`${mergedLab ? 'h-full min-h-[12rem]' : 'h-24'} p-2.5 rounded-xl border transition-all cursor-grab active:cursor-grabbing shadow-sm flex flex-col justify-between ${
         slot.hasConflict
           ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-400 text-rose-900'
           : isLab
@@ -66,7 +69,7 @@ export function SlotCard({ slot, filterType, onDragStart }: SlotCardProps) {
               isLab ? 'bg-purple-200 text-purple-800' : 'bg-indigo-200 text-indigo-800'
             }`}
           >
-            {isLab ? 'LAB' : 'LEC'}
+            {isLab ? (slot.isLabBlock ? '2h LAB' : 'LAB') : 'LEC'}
           </span>
         </div>
       </div>

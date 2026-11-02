@@ -6,6 +6,7 @@ import { TimetableGrid } from '@/components/timetable/timetable-grid';
 import { ExportActions } from '@/components/timetable/export-actions';
 import { TimetableSlotData } from '@/components/timetable/slot-card';
 import { CalendarDays, RefreshCw } from 'lucide-react';
+import { DAYS_OF_WEEK, TIME_SLOTS, TimeSlotDef } from '@/lib/utils';
 
 export default function TimetablePage() {
   const [filterType, setFilterType] = useState<'section' | 'faculty' | 'room'>('section');
@@ -15,6 +16,9 @@ export default function TimetablePage() {
   const [faculties, setFaculties] = useState<{ id: string; name: string }[]>([]);
   const [rooms, setRooms] = useState<{ id: string; name: string }[]>([]);
   const [slots, setSlots] = useState<TimetableSlotData[]>([]);
+  const [timeSlots, setTimeSlots] = useState<TimeSlotDef[]>(TIME_SLOTS);
+  const [scheduleDays, setScheduleDays] = useState<Array<{ key: string; label: string }>>([...DAYS_OF_WEEK]);
+  const [isSummer, setIsSummer] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
@@ -43,6 +47,39 @@ export default function TimetablePage() {
 
       if (ttData.success && ttData.data.length > 0) {
         const latestTt = ttData.data[0];
+        const calendar = latestTt.calendar;
+        if (calendar && Array.isArray(calendar.periodStructure)) {
+          const configuredPeriods = calendar.periodStructure
+            .filter((period: any) => period && period.isLunch !== true)
+            .map((period: any, position: number) => {
+              const index = Number.isInteger(period.index) ? period.index : position;
+              const fullLabel = typeof period.label === 'string' ? period.label : `Period ${index + 1}`;
+              const labelTime = fullLabel.match(/\(([^)]+)\)/)?.[1] ?? fullLabel;
+              return {
+                index,
+                periodNumber: index + 1,
+                label: `P${index + 1}`,
+                time: labelTime,
+                isAfternoon: !calendar.isSummer && index >= 4,
+              } satisfies TimeSlotDef;
+            });
+          if (configuredPeriods.length > 0) setTimeSlots(configuredPeriods);
+          if (Array.isArray(calendar.workingDays)) {
+            const labels: Record<string, string> = {
+              MONDAY: 'Monday',
+              TUESDAY: 'Tuesday',
+              WEDNESDAY: 'Wednesday',
+              THURSDAY: 'Thursday',
+              FRIDAY: 'Friday',
+              SATURDAY: 'Saturday',
+            };
+            const configuredDays = calendar.workingDays
+              .filter((day: string) => day in labels)
+              .map((day: string) => ({ key: day, label: labels[day] }));
+            if (configuredDays.length > 0) setScheduleDays(configuredDays);
+          }
+          setIsSummer(calendar.isSummer === true);
+        }
         const hydratedSlots: TimetableSlotData[] = latestTt.slots.map((s: any) => ({
           id: s.id,
           dayOfWeek: s.dayOfWeek,
@@ -57,6 +94,10 @@ export default function TimetablePage() {
           facultyName: s.faculty?.name || 'Faculty',
           roomId: s.roomId,
           roomName: s.room?.name || 'Room',
+          batchGroup: s.batchGroup,
+          coFaculty: Array.isArray(s.coFaculty) ? s.coFaculty : [],
+          isLabBlock: s.isLabBlock === true,
+          labBlockStart: s.labBlockStart === true,
         }));
         setSlots(hydratedSlots);
       } else {
@@ -166,6 +207,8 @@ export default function TimetablePage() {
             title={`${activeEntityName} Timetable`}
             subtitle={`Filter: ${filterType.toUpperCase()} — Academic Schedule`}
             gridData={gridMapForExport}
+            timeSlots={timeSlots}
+            days={scheduleDays}
           />
         </div>
       </div>
@@ -189,6 +232,9 @@ export default function TimetablePage() {
           slots={slots}
           filterType={filterType}
           selectedEntityId={selectedEntityId}
+          timeSlots={timeSlots}
+          days={scheduleDays}
+          isSummer={isSummer}
           onSlotMove={handleSlotMove}
         />
       )}

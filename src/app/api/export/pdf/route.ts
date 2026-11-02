@@ -5,7 +5,9 @@ import { TIME_SLOTS, DAYS_OF_WEEK } from '@/lib/utils';
 
 export async function POST(req: Request) {
   try {
-    const { title, subtitle, gridData } = await req.json();
+    const { title, subtitle, gridData, timeSlots: configuredSlots, days: configuredDays } = await req.json();
+    const timeSlots = Array.isArray(configuredSlots) ? configuredSlots : TIME_SLOTS;
+    const days = Array.isArray(configuredDays) ? configuredDays : DAYS_OF_WEEK;
 
     const doc = new jsPDF({ orientation: 'landscape' });
 
@@ -15,12 +17,12 @@ export async function POST(req: Request) {
     doc.setFontSize(11);
     doc.text(subtitle || 'Clash-Free Academic Schedule', 14, 22);
 
-    const headers = ['Day / Time', ...TIME_SLOTS.map((t) => t.label)];
+    const headers = ['Day / Time', ...timeSlots.map((t: (typeof TIME_SLOTS)[number]) => t.label)];
     const body: string[][] = [];
 
-    for (const day of DAYS_OF_WEEK) {
+    for (const day of days) {
       const row: string[] = [day.label];
-      for (const slot of TIME_SLOTS) {
+      for (const slot of timeSlots) {
         const slotData = gridData?.[day.key]?.[slot.index];
         if (slotData) {
           row.push(`${slotData.subjectCode}\n${slotData.facultyName}\n(${slotData.roomName})`);
